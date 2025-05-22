@@ -1,0 +1,18 @@
+version: "3"
+
+tasks:
+  build:
+    cmds:
+      - go build -o ./bin/app ./cmd/app/main.go
+  run:
+    deps: [build]
+    env:
+      CONFIG_PATH: ./.env
+    cmds:
+      - ./bin/app
+  test:
+    cmds:
+      - go test ./...
+  compose:
+    cmds:
+      - docker compose up -d

@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS chat.chats;
+DROP TABLE IF EXISTS chat.messages;
+DROP SCHEMA IF EXISTS chat;
