@@ -4,14 +4,17 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
 type Config struct {
-	Env  string `env:"ENV" env-default:"prod"`
-	Port int    `env:"PORT" env-default:"50030"`
-	DB   DBConfig
+	Env   string `env:"ENV" env-default:"prod"`
+	Port  int    `env:"PORT" env-default:"50030"`
+	DB    DBConfig
+	S3    MinioConfig
+	Redis RedisConfig
 }
 
 type DBConfig struct {
@@ -23,6 +26,22 @@ type DBConfig struct {
 	MinPools       int    `env:"DB_MIN_POOLS" env-default:"3"`
 	MaxPools       int    `env:"DB_MAX_POOLS" env-default:"5"`
 	MigrationsPath string `env:"MIGRATIONS_PATH" env-default:"./migrations"`
+}
+
+type MinioConfig struct {
+	Endpoint   string `env:"MINIO_ENDPOINT" env-default:"localhost:9000"`
+	User       string `env:"MINIO_ROOT_USER" env-default:"minio"`
+	Password   string `env:"MINIO_ROOT_PASSWORD" env-required:"true"`
+	BucketName string `env:"MINIO_BUCKET_NAME" env-default:"users"`
+	IsUseSsl   bool   `env:"MINIO_USE_SSL" env-default:"false"`
+}
+
+type RedisConfig struct {
+	Addr       string        `env:"REDIS_ADDR" env-default:"localhost:6379"`
+	User       string        `env:"REDIS_USER" env-default:"root"`
+	Password   string        `env:"REDIS_USER_PASSWORD" env-default:"root"`
+	DB         int           `env:"REDIS_DB" env-default:"0"`
+	Expiration time.Duration `env:"REDIS_EXPIRATION" env-default:"24h"`
 }
 
 func MustLoad() *Config {

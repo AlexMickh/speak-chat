@@ -97,6 +97,7 @@ func Interceptor(ctx context.Context) grpc.UnaryServerInterceptor {
 			guid, ok := md[RequestID]
 			if ok {
 				GetFromCtx(lCtx).Error(ctx, "No request id")
+				//nolint:staticcheck
 				ctx = context.WithValue(ctx, RequestID, guid)
 			}
 		}

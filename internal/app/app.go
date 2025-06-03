@@ -5,7 +5,12 @@ import (
 	"log/slog"
 
 	"github.com/AlexMickh/speak-chat/internal/config"
+	"github.com/AlexMickh/speak-chat/internal/storage/minio"
+	"github.com/AlexMickh/speak-chat/internal/storage/postgres"
+	"github.com/AlexMickh/speak-chat/internal/storage/redis"
+	minioclient "github.com/AlexMickh/speak-chat/pkg/minio-client"
 	postgresclient "github.com/AlexMickh/speak-chat/pkg/postgres-client"
+	redisclient "github.com/AlexMickh/speak-chat/pkg/redis-client"
 	"github.com/AlexMickh/speak-chat/pkg/sl"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -34,6 +39,40 @@ func Register(ctx context.Context, cfg *config.Config) *App {
 	if err != nil {
 		sl.GetFromCtx(ctx).Fatal(ctx, "failed to init pgx pool", sl.Err(err))
 	}
+
+	postgres := postgres.New(db)
+	_ = postgres
+
+	sl.GetFromCtx(ctx).Info(ctx, "initing minio")
+	minioCfg := minioclient.NewConfig(
+		cfg.S3.Endpoint,
+		cfg.S3.User,
+		cfg.S3.Password,
+		cfg.S3.BucketName,
+		cfg.S3.IsUseSsl,
+	)
+	s3, err := minioclient.New(ctx, minioCfg)
+	if err != nil {
+		sl.GetFromCtx(ctx).Fatal(ctx, "failed to init minio", sl.Err(err))
+	}
+
+	minio := minio.New(s3, cfg.S3.BucketName)
+	_ = minio
+
+	sl.GetFromCtx(ctx).Info(ctx, "initing redis")
+	redisCfg := redisclient.NewConfig(
+		cfg.Redis.Addr,
+		cfg.Redis.User,
+		cfg.Redis.Password,
+		cfg.Redis.DB,
+	)
+	cash, err := redisclient.New(ctx, redisCfg)
+	if err != nil {
+		sl.GetFromCtx(ctx).Fatal(ctx, "failed to init redis", sl.Err(err))
+	}
+
+	redis := redis.New(cash, cfg.Redis.DB, cfg.Redis.Expiration)
+	_ = redis
 
 	return &App{
 		db: db,

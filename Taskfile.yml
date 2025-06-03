@@ -13,6 +13,15 @@ tasks:
   test:
     cmds:
       - go test ./...
+  lint:
+    cmds:
+      - golangci-lint run ./...
   compose:
     cmds:
       - docker compose up -d
+  push:
+    deps: [lint, test]
+    cmds:
+      - git add .
+      - git commit -m "{{.CLI_ARGS}}"
+      - git push -u origin master
