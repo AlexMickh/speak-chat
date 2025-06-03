@@ -1,3 +1,4 @@
 /.vscode
 /bin
 .env
+chat.session.sql
