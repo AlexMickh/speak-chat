@@ -37,6 +37,27 @@ services:
      timeout: 20s
      retries: 3
 
+  redis:
+    image: redis:latest
+    container_name: redis_chat
+    ports:
+      - ${REDIS_PORT}:6379
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_USER: ${REDIS_USER}
+      REDIS_USER_PASSWORD: ${REDIS_USER_PASSWORD}
+      REDIS_DB: ${REDIS_DB}
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+
 volumes:
   postgres:
   minio-storage:
+  redis:

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,7 +9,8 @@ import (
 
 	"github.com/AlexMickh/speak-chat/internal/app"
 	"github.com/AlexMickh/speak-chat/internal/config"
-	"github.com/AlexMickh/speak-chat/pkg/sl"
+	"github.com/AlexMickh/speak-chat/pkg/logger"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -18,12 +18,14 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	ctx = sl.New(ctx, os.Stdout, cfg.Env)
+	ctx = logger.New(ctx, []string{"stdout", "logs.log"}, cfg.Env)
 
-	sl.GetFromCtx(ctx).Info(ctx, "logger is working", slog.String("env", cfg.Env))
+	logger.GetFromCtx(ctx).Info(ctx, "logger is working", zap.String("env", cfg.Env))
 
 	app := app.Register(ctx, cfg)
 	defer app.GracefulStop(ctx)
+
+	app.Run(ctx)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
@@ -31,5 +33,5 @@ func main() {
 	<-stop
 
 	close(stop)
-	sl.GetFromCtx(ctx).Info(ctx, "server stopped")
+	logger.GetFromCtx(ctx).Info(ctx, "server stopped")
 }

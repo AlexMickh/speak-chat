@@ -1,0 +1,1 @@
+ALTER TABLE chat.chats DROP COLUMN image_expire_time;
