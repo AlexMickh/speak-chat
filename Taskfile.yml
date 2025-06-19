@@ -1,18 +1,20 @@
 version: "3"
 
+dotenv: ['.env']
+
 tasks:
   build:
     cmds:
-      - go build -o ./bin/app ./cmd/app/main.go
+      - if [ "$ENV" != "local" ]; then go build -o ./bin/app ./cmd/app/main.go; fi
   run:
-    deps: [build]
+    deps: [compose, build]
     env:
       CONFIG_PATH: ./.env
     cmds:
-      - ./bin/app
+      - if [ "$ENV" == "local" ]; then air; else ./bin/app; fi
   test:
     cmds:
-      - go test ./...
+      - go test -v -race ./...
   lint:
     cmds:
       - golangci-lint run ./...

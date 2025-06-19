@@ -11,10 +11,13 @@ import (
 
 type Client interface {
 	HSet(ctx context.Context, key string, values ...interface{}) *redis.IntCmd
-	HGet(ctx context.Context, key string, field string) *redis.StringCmd
+	HGetAll(ctx context.Context, key string) *redis.MapStringStringCmd
 	Del(ctx context.Context, keys ...string) *redis.IntCmd
 	Pipeline() redis.Pipeliner
 	Scan(ctx context.Context, cursor uint64, match string, count int64) *redis.ScanCmd
+	RPush(ctx context.Context, key string, values ...interface{}) *redis.IntCmd
+	LRange(ctx context.Context, key string, start int64, stop int64) *redis.StringSliceCmd
+	Expire(ctx context.Context, key string, expiration time.Duration) *redis.BoolCmd
 }
 
 type Redis struct {
@@ -38,50 +41,27 @@ func New(rdb Client, db int, expiration time.Duration) *Redis {
 	}
 }
 
-func (r *Redis) SaveMessages(ctx context.Context, chatId string, messages []models.Message) error {
-	const op = "storage.redis.SaveMessage"
+func (r *Redis) SaveChat(ctx context.Context, chat models.Chat) error {
+	const op = "storage.redis.SaveChat"
 
 	pipeline := r.rdb.Pipeline()
-	for i, message := range messages {
-		key := genKey(i, chatId)
 
-		err := pipeline.HSet(ctx, key, message).Err()
-		if err != nil {
-			return fmt.Errorf("%s: %w", op, err)
-		}
-
-		err = pipeline.Expire(ctx, key, r.cfg.expiration).Err()
-		if err != nil {
-			return fmt.Errorf("%s: %w", op, err)
-		}
-	}
-
-	_, err := pipeline.Exec(ctx)
+	err := pipeline.HSet(ctx, chat.ID, chat).Err()
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	return nil
-}
-
-func (r *Redis) SaveOneMessage(ctx context.Context, chatId string, message models.Message) error {
-	const op = "storage.redis.SaveOneMessage"
-
-	pipeline := r.rdb.Pipeline()
-
-	err := pipeline.Del(ctx, genKey(9, chatId)).Err()
+	err = pipeline.Expire(ctx, chat.ID, r.cfg.expiration).Err()
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	for i := range 9 {
-		err = pipeline.Copy(ctx, genKey(i, chatId), genKey(i+1, chatId), r.cfg.db, true).Err()
-		if err != nil {
-			return fmt.Errorf("%s: %w", op, err)
-		}
+	err = r.rdb.RPush(ctx, chat.ID+"&part", chat.ParticipantsId).Err()
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	err = pipeline.HSet(ctx, genKey(9, chatId), message).Err()
+	err = pipeline.Expire(ctx, chat.ID+"&part", r.cfg.expiration).Err()
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -94,50 +74,59 @@ func (r *Redis) SaveOneMessage(ctx context.Context, chatId string, message model
 	return nil
 }
 
-func (r *Redis) GetMessages(ctx context.Context, chatId string) ([]models.Message, error) {
-	const op = "storage.redis.GetMessages"
+func (r *Redis) GetChat(ctx context.Context, id string) (models.Chat, error) {
+	const op = "storage.redis.GetChat"
 
-	// TODO: add pipeline
-	var cursor uint64
-	var keys []string
-	var err error
-	for {
-		keys, _, err = r.rdb.Scan(ctx, cursor, "*&"+chatId, 10).Result()
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", op, err)
-		}
-		if cursor == 0 {
-			break
-		}
-	}
-
-	// sort.Slice(keys, func(i, j int) bool {
-	// 	el1, _ := strconv.Atoi(strings.Split(keys[i], "&")[0])
-	// 	el2, _ := strconv.Atoi(strings.Split(keys[j], "&")[0])
-	// 	return el1 < el2
-	// })
-
-	pipeline := r.rdb.Pipeline()
-	messages := make([]models.Message, len(keys))
-	for i := range keys {
-		var message models.Message
-
-		err = pipeline.HGetAll(ctx, genKey(i, chatId)).Scan(&message)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", op, err)
-		}
-
-		messages[i] = message
-	}
-
-	_, err = pipeline.Exec(ctx)
+	var chat models.Chat
+	err := r.rdb.HGetAll(ctx, id).Scan(&chat)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return models.Chat{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return messages, nil
+	err = r.rdb.Expire(ctx, id, r.cfg.expiration).Err()
+	if err != nil {
+		return models.Chat{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	chat.ParticipantsId, err = r.rdb.LRange(ctx, chat.ID+"&part", 0, -1).Result()
+	if err != nil {
+		return models.Chat{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	chat.ID = id
+
+	return chat, nil
 }
 
-func genKey(index int, chatId string) string {
-	return fmt.Sprint(index) + "&" + chatId
+func (r *Redis) UpdateChat(ctx context.Context, chat models.Chat) error {
+	const op = "storage.redis.UpdateChat"
+
+	err := r.SaveChat(ctx, chat)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (r *Redis) AddParticipant(ctx context.Context, chatId, participantId string) error {
+	const op = "storage.redis.AddParticipant"
+
+	err := r.rdb.RPush(ctx, chatId+"&part", participantId).Err()
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (r *Redis) DeleteChat(ctx context.Context, chatId string) error {
+	const op = "storage.redis.DeleteChat"
+
+	err := r.rdb.Del(ctx, chatId).Err()
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
 }

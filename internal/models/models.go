@@ -1,21 +1,24 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type Chat struct {
-	ID             string
-	Name           string
-	Description    string
-	ChatImageUrl   string
-	ChatOwnerId    string
-	ParticipantsId []string
+	ID              string    `redis:"id"`
+	Name            string    `redis:"name"`
+	Description     string    `redis:"description"`
+	ChatImageUrl    string    `redis:"chat_image_url"`
+	ImageExpireTime time.Time `redis:"image_expire_time"`
+	ChatOwnerId     string    `redis:"chat_owner_id"`
+	ParticipantsId  []string  `redis:"-"`
 }
 
-type Message struct {
-	ID        string
-	SenderId  string
-	Message   string
-	CreatedAt time.Time
+type ChatPreview struct {
+	ID              string    `redis:"id"`
+	Name            string    `redis:"name"`
+	ChatImageUrl    string    `redis:"chat_image_url"`
+	ImageExpireTime time.Time `redis:"image_expire_time"`
 }
 
 type Avatar struct {

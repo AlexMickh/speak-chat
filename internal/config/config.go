@@ -10,11 +10,12 @@ import (
 )
 
 type Config struct {
-	Env   string `env:"ENV" env-default:"prod"`
-	Port  int    `env:"PORT" env-default:"50030"`
-	DB    DBConfig
-	S3    MinioConfig
-	Redis RedisConfig
+	Env             string `env:"ENV" env-default:"prod"`
+	Port            int    `env:"PORT" env-default:"50030"`
+	AuthServiceAddr string `env:"AUTH_SERVICE_ADDR" env-required:"true"`
+	DB              DBConfig
+	S3              MinioConfig
+	Redis           RedisConfig
 }
 
 type DBConfig struct {
@@ -29,11 +30,12 @@ type DBConfig struct {
 }
 
 type MinioConfig struct {
-	Endpoint   string `env:"MINIO_ENDPOINT" env-default:"localhost:9000"`
-	User       string `env:"MINIO_ROOT_USER" env-default:"minio"`
-	Password   string `env:"MINIO_ROOT_PASSWORD" env-required:"true"`
-	BucketName string `env:"MINIO_BUCKET_NAME" env-default:"users"`
-	IsUseSsl   bool   `env:"MINIO_USE_SSL" env-default:"false"`
+	Endpoint   string        `env:"MINIO_ENDPOINT" env-default:"localhost:9000"`
+	User       string        `env:"MINIO_ROOT_USER" env-default:"minio"`
+	Password   string        `env:"MINIO_ROOT_PASSWORD" env-required:"true"`
+	BucketName string        `env:"MINIO_BUCKET_NAME" env-default:"users"`
+	IsUseSsl   bool          `env:"MINIO_USE_SSL" env-default:"false"`
+	Expires    time.Duration `env:"MINIO_EXPIRES" env-default:"140h"`
 }
 
 type RedisConfig struct {
